@@ -42,10 +42,12 @@ interface StarData {
 
 // Isometric triangular grid background
 function IsometricGrid() {
+  const { viewport } = useThree()
+  
   const gridLines = useMemo(() => {
     const lines: number[] = []
-    // Fixed large size that will cover any screen (500 world units in each direction)
-    const size = 500
+    // Make grid 10x the viewport to ensure full coverage after any rotation
+    const size = Math.max(viewport.width, viewport.height) * 10
     const spacing = 2 // spacing between grid lines
     const h = spacing * Math.sqrt(3) / 2 // height of equilateral triangle
     
@@ -53,6 +55,7 @@ function IsometricGrid() {
     const cols = Math.ceil(size / spacing)
     const rows = Math.ceil(size / h)
     
+    // Center the grid
     const offsetX = -size / 2
     const offsetY = -size / 2
     
@@ -77,7 +80,7 @@ function IsometricGrid() {
     }
     
     return new Float32Array(lines)
-  }, [])
+  }, [viewport])
 
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry()
@@ -133,7 +136,7 @@ export default function App() {
         {debugMode ? (
           <DebugScene invertColors={invertColors} />
         ) : (
-          <Physics gravity={portraitTV ? [9.8, 0, 0] : [0, -9.8, 0]}>
+          <Physics gravity={[0, -9.8, 0]}>
             <Scene invertColors={invertColors} portraitMode={portraitTV} />
           </Physics>
         )}
@@ -275,30 +278,24 @@ function Scene({ invertColors, portraitMode }: { invertColors: boolean; portrait
     return () => clearTimeout(timeout)
   }, [resetTrigger])
 
+  // Swap width/height for spawning when in portrait mode
+  const spawnWidth = portraitMode ? viewport.height : viewport.width
+  const spawnHeight = portraitMode ? viewport.width : viewport.height
+
   // Spawn letters and stars
   useEffect(() => {
     const interval = setInterval(() => {
       // Spawn multiple letters at once
       const newLetters: LetterData[] = []
       for (let i = 0; i < lettersPerSpawn; i++) {
-        // In portrait mode: spawn from -X (top), spread along Y axis
-        // In landscape mode: spawn from +Y (top), spread along X axis
-        const position: [number, number, number] = portraitMode
-          ? [
-              -viewport.width / 2 - 3 - Math.random() * 3, // Spawn from left (top in portrait)
-              (Math.random() - 0.5) * viewport.height * 0.8, // Spread along Y
-              (Math.random() - 0.5) * 1.5
-            ]
-          : [
-              (Math.random() - 0.5) * viewport.width * 0.8,
-              viewport.height / 2 + 3 + Math.random() * 3,
-              (Math.random() - 0.5) * 1.5
-            ]
-        
         newLetters.push({
           id: letterIdRef.current++,
           modelPath: LETTER_MODELS[Math.floor(Math.random() * LETTER_MODELS.length)],
-          position,
+          position: [
+            (Math.random() - 0.5) * spawnWidth * 0.8,
+            spawnHeight / 2 + 3 + Math.random() * 3,
+            (Math.random() - 0.5) * 1.5
+          ],
           rotation: [Math.random() * 0.5, Math.random() * Math.PI, Math.random() * 0.5],
           scale: letterScale + (Math.random() - 0.5) * 10 // Slight size variation
         })
@@ -320,21 +317,13 @@ function Scene({ invertColors, portraitMode }: { invertColors: boolean; portrait
       const newStars: StarData[] = []
       const totalStars = starsPerLetter * lettersPerSpawn
       for (let i = 0; i < totalStars; i++) {
-        const starPosition: [number, number, number] = portraitMode
-          ? [
-              -viewport.width / 2 - 3 - Math.random() * 4,
-              (Math.random() - 0.5) * viewport.height * 0.9,
-              (Math.random() - 0.5) * 2
-            ]
-          : [
-              (Math.random() - 0.5) * viewport.width * 0.9,
-              viewport.height / 2 + 3 + Math.random() * 4,
-              (Math.random() - 0.5) * 2
-            ]
-        
         newStars.push({
           id: starIdRef.current++,
-          position: starPosition,
+          position: [
+            (Math.random() - 0.5) * spawnWidth * 0.9,
+            spawnHeight / 2 + 3 + Math.random() * 4,
+            (Math.random() - 0.5) * 2
+          ],
           rotation: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI],
           scale: starScale + (Math.random() - 0.5) * 4, // Slight size variation
           color: STAR_PRIMARY
@@ -352,49 +341,31 @@ function Scene({ invertColors, portraitMode }: { invertColors: boolean; portrait
     }, spawnRate * 1000)
 
     return () => clearInterval(interval)
-  }, [spawnRate, lettersPerSpawn, letterScale, starScale, starsPerLetter, viewport, portraitMode, performanceMode, maxLetters, maxStars])
+  }, [spawnRate, lettersPerSpawn, letterScale, starScale, starsPerLetter, spawnWidth, spawnHeight, performanceMode, maxLetters, maxStars])
 
   // No auto-reset - let letters stack and fill the screen!
 
-  const w = viewport.width / 2
-  const h = viewport.height / 2
+  // Swap width/height when in portrait mode (CSS rotates the view 90°)
+  const actualWidth = portraitMode ? viewport.height : viewport.width
+  const actualHeight = portraitMode ? viewport.width : viewport.height
+  const w = actualWidth / 2
+  const h = actualHeight / 2
   const wallThickness = 2 // Thicker walls to prevent tunneling
 
   return (
     <>
       {/* Walls and floor - wrapped in fixed RigidBody to prevent tunneling */}
       <RigidBody type="fixed" colliders={false}>
-        {portraitMode ? (
-          <>
-            {/* Portrait mode: gravity is +X, so floor is on +X side */}
-            {/* Floor (right side in Three.js = bottom in portrait view) */}
-            <CuboidCollider position={[w + wallThickness, 0, 0]} args={[wallThickness, h * 3, 10]} />
-            {/* Ceiling (left side in Three.js = top in portrait view) */}
-            <CuboidCollider position={[-w - wallThickness, 0, 0]} args={[wallThickness, h * 3, 10]} />
-            {/* Left wall (bottom in Three.js = left in portrait view) */}
-            <CuboidCollider position={[0, -h - wallThickness, 0]} args={[w * 3, wallThickness, 10]} />
-            {/* Right wall (top in Three.js = right in portrait view) */}
-            <CuboidCollider position={[0, h + wallThickness, 0]} args={[w * 3, wallThickness, 10]} />
-            {/* Back wall */}
-            <CuboidCollider position={[0, 0, -5]} args={[w * 3, h * 3, 2]} />
-            {/* Front wall */}
-            <CuboidCollider position={[0, 0, 5]} args={[w * 3, h * 3, 2]} />
-          </>
-        ) : (
-          <>
-            {/* Landscape mode: gravity is -Y, standard setup */}
-            {/* Left wall */}
-            <CuboidCollider position={[-w - wallThickness, 0, 0]} args={[wallThickness, h * 3, 10]} />
-            {/* Right wall */}
-            <CuboidCollider position={[w + wallThickness, 0, 0]} args={[wallThickness, h * 3, 10]} />
-            {/* Back wall */}
-            <CuboidCollider position={[0, 0, -5]} args={[w + wallThickness, h * 3, 2]} />
-            {/* Front wall */}
-            <CuboidCollider position={[0, 0, 5]} args={[w + wallThickness, h * 3, 2]} />
-            {/* Floor */}
-            <CuboidCollider position={[0, -h - wallThickness, 0]} args={[w + wallThickness * 2, wallThickness, 10]} />
-          </>
-        )}
+        {/* Left wall */}
+        <CuboidCollider position={[-w - wallThickness, 0, 0]} args={[wallThickness, h * 3, 10]} />
+        {/* Right wall */}
+        <CuboidCollider position={[w + wallThickness, 0, 0]} args={[wallThickness, h * 3, 10]} />
+        {/* Back wall */}
+        <CuboidCollider position={[0, 0, -5]} args={[w + wallThickness, h * 3, 2]} />
+        {/* Front wall */}
+        <CuboidCollider position={[0, 0, 5]} args={[w + wallThickness, h * 3, 2]} />
+        {/* Floor - thick floor to prevent letters falling through */}
+        <CuboidCollider position={[0, -h - wallThickness, 0]} args={[w + wallThickness * 2, wallThickness, 10]} />
       </RigidBody>
 
       {/* Letters */}
