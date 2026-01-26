@@ -42,18 +42,16 @@ interface StarData {
 
 // Isometric triangular grid background
 function IsometricGrid() {
-  const { viewport } = useThree()
-  
   const gridLines = useMemo(() => {
     const lines: number[] = []
-    // Make grid much larger to ensure full coverage in all orientations (including 90° rotation)
-    const size = (viewport.width + viewport.height) * 2
+    // Fixed large size that will cover any screen (500 world units in each direction)
+    const size = 500
     const spacing = 2 // spacing between grid lines
     const h = spacing * Math.sqrt(3) / 2 // height of equilateral triangle
     
     // Calculate number of lines needed
-    const cols = Math.ceil(size / spacing) + 30
-    const rows = Math.ceil(size / h) + 30
+    const cols = Math.ceil(size / spacing)
+    const rows = Math.ceil(size / h)
     
     const offsetX = -size / 2
     const offsetY = -size / 2
@@ -79,7 +77,7 @@ function IsometricGrid() {
     }
     
     return new Float32Array(lines)
-  }, [viewport])
+  }, [])
 
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry()
