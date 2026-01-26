@@ -89,9 +89,15 @@ function IsometricGrid() {
   }, [gridLines])
 
   return (
-    <lineSegments geometry={geometry} rotation={[0, 0, Math.PI / 2]}>
-      <lineBasicMaterial color="#D9D9D9" transparent opacity={0.3} />
-    </lineSegments>
+    <group>
+      {/* Render grid twice - original and rotated - to ensure full coverage */}
+      <lineSegments geometry={geometry}>
+        <lineBasicMaterial color="#D9D9D9" transparent opacity={0.3} />
+      </lineSegments>
+      <lineSegments geometry={geometry} rotation={[0, 0, Math.PI / 2]}>
+        <lineBasicMaterial color="#D9D9D9" transparent opacity={0.3} />
+      </lineSegments>
+    </group>
   )
 }
 
