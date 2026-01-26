@@ -264,6 +264,11 @@ function Scene({ invertColors, portraitMode, liteGlass }: { invertColors: boolea
     maxStars: { value: 20, min: 10, max: 100, step: 5 },
   })
 
+  // Debug: log counts to console
+  useEffect(() => {
+    console.log(`Letters: ${letters.length}/${maxLetters}, Stars: ${stars.length}/${maxStars}`)
+  }, [letters.length, stars.length, maxLetters, maxStars])
+
   const [resetTrigger, setResetTrigger] = useState(0)
   useControls('Actions', {
     'Reset': button(() => setResetTrigger(n => n + 1)),
@@ -289,14 +294,14 @@ function Scene({ invertColors, portraitMode, liteGlass }: { invertColors: boolea
         // Landscape mode: spawn from top, fall down
         const position: [number, number, number] = portraitMode
           ? [
-              viewport.width / 2 + 3 + Math.random() * 3,  // Right edge
-              (Math.random() - 0.5) * viewport.height * 0.8,  // Random Y
-              (Math.random() - 0.5) * 1.5
+              viewport.width / 2 + 3 + Math.random() * 2,  // Outside right edge (will fall into tank)
+              (Math.random() - 0.5) * viewport.height * 0.7,  // Random Y
+              (Math.random() - 0.5) * 1
             ]
           : [
-              (Math.random() - 0.5) * viewport.width * 0.8,
-              viewport.height / 2 + 3 + Math.random() * 3,
-              (Math.random() - 0.5) * 1.5
+              (Math.random() - 0.5) * viewport.width * 0.7,
+              viewport.height / 2 + 3 + Math.random() * 2,  // Above top edge (will fall into tank)
+              (Math.random() - 0.5) * 1
             ]
         
         newLetters.push({
@@ -326,14 +331,14 @@ function Scene({ invertColors, portraitMode, liteGlass }: { invertColors: boolea
       for (let i = 0; i < totalStars; i++) {
         const starPosition: [number, number, number] = portraitMode
           ? [
-              viewport.width / 2 + 3 + Math.random() * 4,  // Right edge
-              (Math.random() - 0.5) * viewport.height * 0.9,  // Random Y
-              (Math.random() - 0.5) * 2
+              viewport.width / 2 + 3 + Math.random() * 2,  // Outside right edge (will fall into tank)
+              (Math.random() - 0.5) * viewport.height * 0.8,  // Random Y
+              (Math.random() - 0.5) * 1
             ]
           : [
-              (Math.random() - 0.5) * viewport.width * 0.9,
-              viewport.height / 2 + 3 + Math.random() * 4,
-              (Math.random() - 0.5) * 2
+              (Math.random() - 0.5) * viewport.width * 0.8,
+              viewport.height / 2 + 3 + Math.random() * 2,  // Above top edge (will fall into tank)
+              (Math.random() - 0.5) * 1
             ]
         
         newStars.push({
@@ -373,8 +378,7 @@ function Scene({ invertColors, portraitMode, liteGlass }: { invertColors: boolea
             {/* Portrait mode: floor on left, walls on top/bottom */}
             {/* Floor (left wall - where things pile up) */}
             <CuboidCollider position={[-w - wallThickness, 0, 0]} args={[wallThickness, h * 3, 10]} />
-            {/* Right wall (spawn side - keeps things from going too far right) */}
-            <CuboidCollider position={[w + wallThickness * 2, 0, 0]} args={[wallThickness, h * 3, 10]} />
+            {/* NO right wall - letters spawn from right and fall into tank */}
             {/* Top wall */}
             <CuboidCollider position={[0, h + wallThickness, 0]} args={[w * 3, wallThickness, 10]} />
             {/* Bottom wall */}
