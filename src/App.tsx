@@ -108,11 +108,17 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  const { debugMode, useExampleBackground, invertColors } = useControls('Mode', {
+  const { debugMode, useExampleBackground, invertColors, portraitTV } = useControls('Mode', {
     debugMode: { value: false, label: 'Debug Single Letter' },
     useExampleBackground: { value: true, label: 'Example Blue Background' },
     invertColors: { value: false, label: 'Invert Colors (Yellow BG)' },
+    portraitTV: { value: true, label: 'Portrait TV Mode (90° rotation)' },
   })
+
+  // Apply portrait TV rotation via CSS class
+  useEffect(() => {
+    document.getElementById('root')?.classList.toggle('portrait-tv', portraitTV)
+  }, [portraitTV])
 
   return (
     <>
