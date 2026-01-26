@@ -108,11 +108,12 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  const { debugMode, useExampleBackground, invertColors, portraitMode } = useControls('Mode', {
+  const { debugMode, useExampleBackground, invertColors, portraitMode, liteGlass } = useControls('Mode', {
     debugMode: { value: false, label: 'Debug Single Letter' },
     useExampleBackground: { value: true, label: 'Example Blue Background' },
     invertColors: { value: false, label: 'Invert Colors (Yellow BG)' },
     portraitMode: { value: true, label: 'Portrait TV Mode (90° rotated)' },
+    liteGlass: { value: true, label: '⚡ Lite Glass (for Zoom/weak devices)' },
   })
 
   return (
@@ -130,10 +131,11 @@ export default function App() {
           <DebugScene invertColors={invertColors} />
         ) : (
           <Physics gravity={portraitMode ? [-9.8, 0, 0] : [0, -9.8, 0]}>
-            <Scene invertColors={invertColors} portraitMode={portraitMode} />
+            <Scene invertColors={invertColors} portraitMode={portraitMode} liteGlass={liteGlass} />
           </Physics>
         )}
 
+        {/* Environment for reflections */}
         <Environment files="/images/Dancing Hall 1k.hdr" resolution={1024}>
           <group rotation={[-Math.PI / 3, 0, 0]}>
             <Lightformer intensity={4} rotation-x={Math.PI / 2} position={[0, 5, -9]} scale={[10, 10, 1]} />
@@ -216,7 +218,7 @@ function DebugLetter({
   )
 }
 
-function Scene({ invertColors, portraitMode }: { invertColors: boolean; portraitMode: boolean }) {
+function Scene({ invertColors, portraitMode, liteGlass }: { invertColors: boolean; portraitMode: boolean; liteGlass: boolean }) {
   const { viewport } = useThree()
   const [letters, setLetters] = useState<LetterData[]>([])
   const [stars, setStars] = useState<StarData[]>([])
@@ -404,6 +406,7 @@ function Scene({ invertColors, portraitMode }: { invertColors: boolean; portrait
           scale={letter.scale}
           letterRefs={letterRefs}
           glassSettings={glassSettings}
+          liteGlass={liteGlass}
         />
       ))}
 
@@ -439,9 +442,10 @@ interface LetterProps {
   scale: number
   letterRefs: React.MutableRefObject<Map<number, RapierRigidBody>>
   glassSettings: GlassSettings
+  liteGlass: boolean
 }
 
-function Letter({ id, modelPath, position, rotation, scale, letterRefs, glassSettings }: LetterProps) {
+function Letter({ id, modelPath, position, rotation, scale, letterRefs, glassSettings, liteGlass }: LetterProps) {
   const rigidRef = useRef<RapierRigidBody>(null)
   const { scene } = useGLTF(modelPath) as GLTF & { scene: Group }
 
@@ -476,19 +480,37 @@ function Letter({ id, modelPath, position, rotation, scale, letterRefs, glassSet
     >
       <Center>
         <mesh geometry={geometry} scale={scale}>
-          <MeshTransmissionMaterial 
-            clearcoat={glassSettings.clearcoat}
-            samples={glassSettings.samples}
-            thickness={glassSettings.thickness}
-            chromaticAberration={glassSettings.chromaticAberration}
-            anisotropy={glassSettings.anisotropy}
-            transmission={1}
-            roughness={0}
-            distortion={0}
-            distortionScale={0}
-            temporalDistortion={0}
-            color={glassSettings.bufferColor}
-          />
+          {liteGlass ? (
+            // MeshPhysicalMaterial with transmission - still looks glassy but much faster!
+            // Uses screen-space refraction instead of multi-pass rendering
+            <meshPhysicalMaterial 
+              color={glassSettings.bufferColor}
+              transmission={1}
+              thickness={glassSettings.thickness}
+              roughness={0.05}
+              metalness={0}
+              ior={1.5}
+              clearcoat={glassSettings.clearcoat}
+              clearcoatRoughness={0.1}
+              transparent
+              side={THREE.DoubleSide}
+            />
+          ) : (
+            // Full glass material with ray-traced refraction (expensive but beautiful)
+            <MeshTransmissionMaterial 
+              clearcoat={glassSettings.clearcoat}
+              samples={glassSettings.samples}
+              thickness={glassSettings.thickness}
+              chromaticAberration={glassSettings.chromaticAberration}
+              anisotropy={glassSettings.anisotropy}
+              transmission={1}
+              roughness={0}
+              distortion={0}
+              distortionScale={0}
+              temporalDistortion={0}
+              color={glassSettings.bufferColor}
+            />
+          )}
         </mesh>
       </Center>
     </RigidBody>
