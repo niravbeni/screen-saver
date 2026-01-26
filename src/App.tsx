@@ -46,14 +46,14 @@ function IsometricGrid() {
   
   const gridLines = useMemo(() => {
     const lines: number[] = []
-    // Make grid much larger to ensure full coverage in all orientations
-    const size = Math.max(viewport.width, viewport.height) * 3
+    // Make grid much larger to ensure full coverage in all orientations (including 90° rotation)
+    const size = (viewport.width + viewport.height) * 2
     const spacing = 2 // spacing between grid lines
     const h = spacing * Math.sqrt(3) / 2 // height of equilateral triangle
     
     // Calculate number of lines needed
-    const cols = Math.ceil(size / spacing) + 20
-    const rows = Math.ceil(size / h) + 20
+    const cols = Math.ceil(size / spacing) + 30
+    const rows = Math.ceil(size / h) + 30
     
     const offsetX = -size / 2
     const offsetY = -size / 2
