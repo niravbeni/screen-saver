@@ -134,7 +134,7 @@ export default function App() {
           <DebugScene invertColors={invertColors} />
         ) : (
           <Physics gravity={[0, -9.8, 0]}>
-            <Scene invertColors={invertColors} />
+            <Scene invertColors={invertColors} portraitMode={portraitTV} />
           </Physics>
         )}
 
@@ -220,7 +220,7 @@ function DebugLetter({
   )
 }
 
-function Scene({ invertColors }: { invertColors: boolean }) {
+function Scene({ invertColors, portraitMode }: { invertColors: boolean; portraitMode: boolean }) {
   const { viewport } = useThree()
   const [letters, setLetters] = useState<LetterData[]>([])
   const [stars, setStars] = useState<StarData[]>([])
@@ -275,6 +275,10 @@ function Scene({ invertColors }: { invertColors: boolean }) {
     return () => clearTimeout(timeout)
   }, [resetTrigger])
 
+  // Swap width/height for spawning when in portrait mode
+  const spawnWidth = portraitMode ? viewport.height : viewport.width
+  const spawnHeight = portraitMode ? viewport.width : viewport.height
+
   // Spawn letters and stars
   useEffect(() => {
     const interval = setInterval(() => {
@@ -285,8 +289,8 @@ function Scene({ invertColors }: { invertColors: boolean }) {
           id: letterIdRef.current++,
           modelPath: LETTER_MODELS[Math.floor(Math.random() * LETTER_MODELS.length)],
           position: [
-            (Math.random() - 0.5) * viewport.width * 0.8,
-            viewport.height / 2 + 3 + Math.random() * 3,
+            (Math.random() - 0.5) * spawnWidth * 0.8,
+            spawnHeight / 2 + 3 + Math.random() * 3,
             (Math.random() - 0.5) * 1.5
           ],
           rotation: [Math.random() * 0.5, Math.random() * Math.PI, Math.random() * 0.5],
@@ -313,8 +317,8 @@ function Scene({ invertColors }: { invertColors: boolean }) {
         newStars.push({
           id: starIdRef.current++,
           position: [
-            (Math.random() - 0.5) * viewport.width * 0.9,
-            viewport.height / 2 + 3 + Math.random() * 4,
+            (Math.random() - 0.5) * spawnWidth * 0.9,
+            spawnHeight / 2 + 3 + Math.random() * 4,
             (Math.random() - 0.5) * 2
           ],
           rotation: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI],
@@ -334,12 +338,15 @@ function Scene({ invertColors }: { invertColors: boolean }) {
     }, spawnRate * 1000)
 
     return () => clearInterval(interval)
-  }, [spawnRate, lettersPerSpawn, letterScale, starScale, starsPerLetter, viewport, performanceMode, maxLetters, maxStars])
+  }, [spawnRate, lettersPerSpawn, letterScale, starScale, starsPerLetter, spawnWidth, spawnHeight, performanceMode, maxLetters, maxStars])
 
   // No auto-reset - let letters stack and fill the screen!
 
-  const w = viewport.width / 2
-  const h = viewport.height / 2
+  // Swap width/height when in portrait mode (CSS rotates the view 90°)
+  const actualWidth = portraitMode ? viewport.height : viewport.width
+  const actualHeight = portraitMode ? viewport.width : viewport.height
+  const w = actualWidth / 2
+  const h = actualHeight / 2
   const wallThickness = 2 // Thicker walls to prevent tunneling
 
   return (
