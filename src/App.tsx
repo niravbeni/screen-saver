@@ -46,16 +46,14 @@ function IsometricGrid() {
   
   const gridLines = useMemo(() => {
     const lines: number[] = []
-    // Make grid 10x the viewport to ensure full coverage after any rotation
-    const size = Math.max(viewport.width, viewport.height) * 10
+    const size = Math.max(viewport.width, viewport.height) * 1.5
     const spacing = 2 // spacing between grid lines
     const h = spacing * Math.sqrt(3) / 2 // height of equilateral triangle
     
     // Calculate number of lines needed
-    const cols = Math.ceil(size / spacing)
-    const rows = Math.ceil(size / h)
+    const cols = Math.ceil(size / spacing) + 10
+    const rows = Math.ceil(size / h) + 10
     
-    // Center the grid
     const offsetX = -size / 2
     const offsetY = -size / 2
     
@@ -89,15 +87,9 @@ function IsometricGrid() {
   }, [gridLines])
 
   return (
-    <group>
-      {/* Render grid twice - original and rotated - to ensure full coverage */}
-      <lineSegments geometry={geometry}>
-        <lineBasicMaterial color="#D9D9D9" transparent opacity={0.3} />
-      </lineSegments>
-      <lineSegments geometry={geometry} rotation={[0, 0, Math.PI / 2]}>
-        <lineBasicMaterial color="#D9D9D9" transparent opacity={0.3} />
-      </lineSegments>
-    </group>
+    <lineSegments geometry={geometry} rotation={[0, 0, Math.PI / 2]}>
+      <lineBasicMaterial color="#D9D9D9" transparent opacity={0.3} />
+    </lineSegments>
   )
 }
 
@@ -116,17 +108,12 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  const { debugMode, useExampleBackground, invertColors, portraitTV } = useControls('Mode', {
+  const { debugMode, useExampleBackground, invertColors, portraitMode } = useControls('Mode', {
     debugMode: { value: false, label: 'Debug Single Letter' },
     useExampleBackground: { value: true, label: 'Example Blue Background' },
     invertColors: { value: false, label: 'Invert Colors (Yellow BG)' },
-    portraitTV: { value: true, label: 'Portrait TV Mode (90° rotation)' },
+    portraitMode: { value: true, label: 'Portrait TV Mode (90° rotated)' },
   })
-
-  // Apply portrait TV rotation via CSS class
-  useEffect(() => {
-    document.getElementById('root')?.classList.toggle('portrait-tv', portraitTV)
-  }, [portraitTV])
 
   return (
     <>
@@ -142,8 +129,8 @@ export default function App() {
         {debugMode ? (
           <DebugScene invertColors={invertColors} />
         ) : (
-          <Physics gravity={[0, -9.8, 0]}>
-            <Scene invertColors={invertColors} portraitMode={portraitTV} />
+          <Physics gravity={portraitMode ? [-9.8, 0, 0] : [0, -9.8, 0]}>
+            <Scene invertColors={invertColors} portraitMode={portraitMode} />
           </Physics>
         )}
 
@@ -284,24 +271,30 @@ function Scene({ invertColors, portraitMode }: { invertColors: boolean; portrait
     return () => clearTimeout(timeout)
   }, [resetTrigger])
 
-  // Swap width/height for spawning when in portrait mode
-  const spawnWidth = portraitMode ? viewport.height : viewport.width
-  const spawnHeight = portraitMode ? viewport.width : viewport.height
-
   // Spawn letters and stars
   useEffect(() => {
     const interval = setInterval(() => {
       // Spawn multiple letters at once
       const newLetters: LetterData[] = []
       for (let i = 0; i < lettersPerSpawn; i++) {
+        // Portrait mode: spawn from right edge, fall left
+        // Landscape mode: spawn from top, fall down
+        const position: [number, number, number] = portraitMode
+          ? [
+              viewport.width / 2 + 3 + Math.random() * 3,  // Right edge
+              (Math.random() - 0.5) * viewport.height * 0.8,  // Random Y
+              (Math.random() - 0.5) * 1.5
+            ]
+          : [
+              (Math.random() - 0.5) * viewport.width * 0.8,
+              viewport.height / 2 + 3 + Math.random() * 3,
+              (Math.random() - 0.5) * 1.5
+            ]
+        
         newLetters.push({
           id: letterIdRef.current++,
           modelPath: LETTER_MODELS[Math.floor(Math.random() * LETTER_MODELS.length)],
-          position: [
-            (Math.random() - 0.5) * spawnWidth * 0.8,
-            spawnHeight / 2 + 3 + Math.random() * 3,
-            (Math.random() - 0.5) * 1.5
-          ],
+          position,
           rotation: [Math.random() * 0.5, Math.random() * Math.PI, Math.random() * 0.5],
           scale: letterScale + (Math.random() - 0.5) * 10 // Slight size variation
         })
@@ -323,13 +316,21 @@ function Scene({ invertColors, portraitMode }: { invertColors: boolean; portrait
       const newStars: StarData[] = []
       const totalStars = starsPerLetter * lettersPerSpawn
       for (let i = 0; i < totalStars; i++) {
+        const starPosition: [number, number, number] = portraitMode
+          ? [
+              viewport.width / 2 + 3 + Math.random() * 4,  // Right edge
+              (Math.random() - 0.5) * viewport.height * 0.9,  // Random Y
+              (Math.random() - 0.5) * 2
+            ]
+          : [
+              (Math.random() - 0.5) * viewport.width * 0.9,
+              viewport.height / 2 + 3 + Math.random() * 4,
+              (Math.random() - 0.5) * 2
+            ]
+        
         newStars.push({
           id: starIdRef.current++,
-          position: [
-            (Math.random() - 0.5) * spawnWidth * 0.9,
-            spawnHeight / 2 + 3 + Math.random() * 4,
-            (Math.random() - 0.5) * 2
-          ],
+          position: starPosition,
           rotation: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI],
           scale: starScale + (Math.random() - 0.5) * 4, // Slight size variation
           color: STAR_PRIMARY
@@ -347,31 +348,49 @@ function Scene({ invertColors, portraitMode }: { invertColors: boolean; portrait
     }, spawnRate * 1000)
 
     return () => clearInterval(interval)
-  }, [spawnRate, lettersPerSpawn, letterScale, starScale, starsPerLetter, spawnWidth, spawnHeight, performanceMode, maxLetters, maxStars])
+  }, [spawnRate, lettersPerSpawn, letterScale, starScale, starsPerLetter, viewport, performanceMode, maxLetters, maxStars, portraitMode])
 
   // No auto-reset - let letters stack and fill the screen!
 
-  // Swap width/height when in portrait mode (CSS rotates the view 90°)
-  const actualWidth = portraitMode ? viewport.height : viewport.width
-  const actualHeight = portraitMode ? viewport.width : viewport.height
-  const w = actualWidth / 2
-  const h = actualHeight / 2
+  const w = viewport.width / 2
+  const h = viewport.height / 2
   const wallThickness = 2 // Thicker walls to prevent tunneling
 
   return (
     <>
       {/* Walls and floor - wrapped in fixed RigidBody to prevent tunneling */}
       <RigidBody type="fixed" colliders={false}>
-        {/* Left wall */}
-        <CuboidCollider position={[-w - wallThickness, 0, 0]} args={[wallThickness, h * 3, 10]} />
-        {/* Right wall */}
-        <CuboidCollider position={[w + wallThickness, 0, 0]} args={[wallThickness, h * 3, 10]} />
-        {/* Back wall */}
-        <CuboidCollider position={[0, 0, -5]} args={[w + wallThickness, h * 3, 2]} />
-        {/* Front wall */}
-        <CuboidCollider position={[0, 0, 5]} args={[w + wallThickness, h * 3, 2]} />
-        {/* Floor - thick floor to prevent letters falling through */}
-        <CuboidCollider position={[0, -h - wallThickness, 0]} args={[w + wallThickness * 2, wallThickness, 10]} />
+        {portraitMode ? (
+          <>
+            {/* Portrait mode: floor on left, walls on top/bottom */}
+            {/* Floor (left wall - where things pile up) */}
+            <CuboidCollider position={[-w - wallThickness, 0, 0]} args={[wallThickness, h * 3, 10]} />
+            {/* Right wall (spawn side - keeps things from going too far right) */}
+            <CuboidCollider position={[w + wallThickness * 2, 0, 0]} args={[wallThickness, h * 3, 10]} />
+            {/* Top wall */}
+            <CuboidCollider position={[0, h + wallThickness, 0]} args={[w * 3, wallThickness, 10]} />
+            {/* Bottom wall */}
+            <CuboidCollider position={[0, -h - wallThickness, 0]} args={[w * 3, wallThickness, 10]} />
+            {/* Back wall */}
+            <CuboidCollider position={[0, 0, -5]} args={[w * 3, h + wallThickness, 2]} />
+            {/* Front wall */}
+            <CuboidCollider position={[0, 0, 5]} args={[w * 3, h + wallThickness, 2]} />
+          </>
+        ) : (
+          <>
+            {/* Landscape mode: floor on bottom, walls on sides */}
+            {/* Left wall */}
+            <CuboidCollider position={[-w - wallThickness, 0, 0]} args={[wallThickness, h * 3, 10]} />
+            {/* Right wall */}
+            <CuboidCollider position={[w + wallThickness, 0, 0]} args={[wallThickness, h * 3, 10]} />
+            {/* Back wall */}
+            <CuboidCollider position={[0, 0, -5]} args={[w + wallThickness, h * 3, 2]} />
+            {/* Front wall */}
+            <CuboidCollider position={[0, 0, 5]} args={[w + wallThickness, h * 3, 2]} />
+            {/* Floor - thick floor to prevent letters falling through */}
+            <CuboidCollider position={[0, -h - wallThickness, 0]} args={[w + wallThickness * 2, wallThickness, 10]} />
+          </>
+        )}
       </RigidBody>
 
       {/* Letters */}
