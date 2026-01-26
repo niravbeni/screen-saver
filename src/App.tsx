@@ -24,6 +24,9 @@ useGLTF.preload('/models/E.glb')
 useGLTF.preload('/models/O.glb')
 useGLTF.preload('/models/star.glb')
 
+// Geometry cache - load each model's geometry once, reuse everywhere
+const geometryCache: Map<string, BufferGeometry> = new Map()
+
 interface LetterData {
   id: number
   modelPath: string
@@ -108,18 +111,19 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  const { debugMode, useExampleBackground, invertColors, portraitMode, liteGlass } = useControls('Mode', {
+  const { debugMode, useExampleBackground, invertColors, portraitMode, liteGlass, enableHDRI } = useControls('Mode', {
     debugMode: { value: false, label: 'Debug Single Letter' },
     useExampleBackground: { value: true, label: 'Example Blue Background' },
     invertColors: { value: false, label: 'Invert Colors (Yellow BG)' },
     portraitMode: { value: true, label: 'Portrait TV Mode (90° rotated)' },
     liteGlass: { value: true, label: '⚡ Lite Glass (for Zoom/weak devices)' },
+    enableHDRI: { value: true, label: '🌄 HDRI Reflections (disable to save ~40MB)' },
   })
 
   return (
     <>
       <Leva hidden={!showControls} />
-      <Canvas orthographic camera={{ position: [0, 0, 100], zoom: 40 }} dpr={[1, 1.5]}>
+      <Canvas orthographic camera={{ position: [0, 0, 100], zoom: 40 }} dpr={1}>
         <color attach="background" args={[invertColors ? STAR_PRIMARY : (useExampleBackground ? '#4899c9' : '#151F27')]} />
         <ambientLight intensity={0.5} />
         <directionalLight position={[10, 10, 5]} intensity={1} />
@@ -135,17 +139,19 @@ export default function App() {
           </Physics>
         )}
 
-        {/* Environment for reflections */}
-        <Environment files="/images/Dancing Hall 1k.hdr" resolution={1024}>
-          <group rotation={[-Math.PI / 3, 0, 0]}>
-            <Lightformer intensity={4} rotation-x={Math.PI / 2} position={[0, 5, -9]} scale={[10, 10, 1]} />
-            {[2, 0, 2, 0, 2, 0, 2, 0].map((x, i) => (
-              <Lightformer key={i} form="circle" intensity={4} rotation={[Math.PI / 2, 0, 0]} position={[x, 4, i * 4]} scale={[4, 1, 1]} />
-            ))}
-            <Lightformer intensity={2} rotation-y={Math.PI / 2} position={[-5, 1, -1]} scale={[50, 2, 1]} />
-            <Lightformer intensity={2} rotation-y={-Math.PI / 2} position={[10, 1, 0]} scale={[50, 2, 1]} />
-          </group>
-        </Environment>
+        {/* Environment for reflections - lower resolution saves memory */}
+        {enableHDRI && (
+          <Environment files="/images/Dancing Hall 1k.hdr" resolution={128}>
+            <group rotation={[-Math.PI / 3, 0, 0]}>
+              <Lightformer intensity={4} rotation-x={Math.PI / 2} position={[0, 5, -9]} scale={[10, 10, 1]} />
+              {[2, 0, 2, 0, 2, 0, 2, 0].map((x, i) => (
+                <Lightformer key={i} form="circle" intensity={4} rotation={[Math.PI / 2, 0, 0]} position={[x, 4, i * 4]} scale={[4, 1, 1]} />
+              ))}
+              <Lightformer intensity={2} rotation-y={Math.PI / 2} position={[-5, 1, -1]} scale={[50, 2, 1]} />
+              <Lightformer intensity={2} rotation-y={-Math.PI / 2} position={[10, 1, 0]} scale={[50, 2, 1]} />
+            </group>
+          </Environment>
+        )}
         <Preload all />
       </Canvas>
     </>
@@ -243,7 +249,7 @@ function Scene({ invertColors, portraitMode, liteGlass }: { invertColors: boolea
   // NOTE: Lower samples = better performance but less quality
   const glassSettings = useControls('Glass Material', {
     clearcoat: { value: 0.5, min: 0, max: 1, step: 0.1 },
-    samples: { value: 2, min: 1, max: 8, step: 1 },
+    samples: { value: 1, min: 1, max: 8, step: 1 },
     thickness: { value: 0.5, min: 0.1, max: 10, step: 0.1 },
     chromaticAberration: { value: 0.05, min: 0, max: 0.5, step: 0.01 },
     anisotropy: { value: 0.01, min: 0, max: 1, step: 0.05 },
@@ -449,15 +455,22 @@ function Letter({ id, modelPath, position, rotation, scale, letterRefs, glassSet
   const rigidRef = useRef<RapierRigidBody>(null)
   const { scene } = useGLTF(modelPath) as GLTF & { scene: Group }
 
+  // Use cached geometry if available, otherwise extract and cache it
   const geometry = useMemo(() => {
+    if (geometryCache.has(modelPath)) {
+      return geometryCache.get(modelPath)!
+    }
     let geo: BufferGeometry | null = null
     scene.traverse(child => {
       if ((child as Mesh).isMesh && !geo) {
         geo = (child as Mesh).geometry
       }
     })
+    if (geo) {
+      geometryCache.set(modelPath, geo)
+    }
     return geo
-  }, [scene])
+  }, [scene, modelPath])
 
   useEffect(() => {
     if (rigidRef.current) {
@@ -535,16 +548,33 @@ function FallingStar({ position, rotation, scale, opacity: _opacity = 1, invertC
   const starColor = invertColors ? STAR_DARK : STAR_PRIMARY
   const outlineColor = invertColors ? '#444444' : STAR_OUTLINE
 
+  // Use cached geometry if available
   const { geometry, edgesGeometry } = useMemo(() => {
+    const starKey = '/models/star.glb'
+    const edgesKey = '/models/star.glb_edges'
+    
+    if (geometryCache.has(starKey) && geometryCache.has(edgesKey)) {
+      return { 
+        geometry: geometryCache.get(starKey)!, 
+        edgesGeometry: geometryCache.get(edgesKey)! 
+      }
+    }
+    
     let geo: BufferGeometry | null = null
     scene.traverse(child => {
       if ((child as Mesh).isMesh && !geo) {
         geo = (child as Mesh).geometry
       }
     })
-    // Create edges geometry for outline
-    const edges = geo ? new THREE.EdgesGeometry(geo, 15) : null
-    return { geometry: geo, edgesGeometry: edges }
+    
+    if (geo) {
+      geometryCache.set(starKey, geo)
+      const edges = new THREE.EdgesGeometry(geo, 15)
+      geometryCache.set(edgesKey, edges)
+      return { geometry: geo, edgesGeometry: edges }
+    }
+    
+    return { geometry: null, edgesGeometry: null }
   }, [scene])
 
   if (!geometry || !edgesGeometry) return null
