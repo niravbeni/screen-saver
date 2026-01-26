@@ -227,12 +227,12 @@ function Scene({ invertColors, portraitMode }: { invertColors: boolean; portrait
   const { spawnRate, letterScale, lettersPerSpawn } = useControls('Tank', {
     spawnRate: { value: 0.8, min: 0.2, max: 3, step: 0.1 },
     lettersPerSpawn: { value: 1, min: 1, max: 3, step: 1 },
-    letterScale: { value: 35, min: 25, max: 45, step: 1 },
+    letterScale: { value: 40, min: 25, max: 45, step: 1 },
   })
   
   // Star controls for falling stars
   const { starScale, starsPerLetter, starOpacity } = useControls('Stars', {
-    starScale: { value: 8, min: 1, max: 20, step: 0.5 },
+    starScale: { value: 12, min: 1, max: 20, step: 0.5 },
     starsPerLetter: { value: 1, min: 0, max: 3, step: 1 },
     starOpacity: { value: 1, min: 0.1, max: 1, step: 0.1 },
   })
