@@ -98,12 +98,21 @@ function IsometricGrid() {
 
 export default function App() {
   const [showControls, setShowControls] = useState(false)
-  
-  // Toggle control panel with spacebar
+  const [landscapePreview, setLandscapePreview] = useState(false)
+
+  useEffect(() => {
+    const root = document.getElementById('root')
+    if (!root) return
+    root.classList.toggle('landscape-preview', landscapePreview)
+  }, [landscapePreview])
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         e.preventDefault()
+        setLandscapePreview(prev => !prev)
+      }
+      if (e.code === 'KeyL') {
         setShowControls(prev => !prev)
       }
     }
@@ -120,40 +129,42 @@ export default function App() {
     enableHDRI: { value: true, label: '🌄 HDRI Reflections (disable to save ~40MB)' },
   })
 
+  const effectivePortraitMode = landscapePreview ? false : portraitMode
+
   return (
     <>
       <Leva hidden={!showControls} />
-      <Canvas orthographic camera={{ position: [0, 0, 100], zoom: 40 }} dpr={1}>
-        <color attach="background" args={[invertColors ? STAR_PRIMARY : (useExampleBackground ? '#4899c9' : '#151F27')]} />
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 5]} intensity={1} />
-        
-        {/* Isometric grid background */}
-        <IsometricGrid />
-        
-        {debugMode ? (
-          <DebugScene invertColors={invertColors} />
-        ) : (
-          <Physics gravity={portraitMode ? [-9.8, 0, 0] : [0, -9.8, 0]}>
-            <Scene invertColors={invertColors} portraitMode={portraitMode} liteGlass={liteGlass} />
-          </Physics>
-        )}
+      <div className="canvas-wrapper">
+        <Canvas orthographic camera={{ position: [0, 0, 100], zoom: 40 }} dpr={1}>
+          <color attach="background" args={[invertColors ? STAR_PRIMARY : (useExampleBackground ? '#4899c9' : '#151F27')]} />
+          <ambientLight intensity={0.5} />
+          <directionalLight position={[10, 10, 5]} intensity={1} />
+          
+          <IsometricGrid />
+          
+          {debugMode ? (
+            <DebugScene invertColors={invertColors} />
+          ) : (
+            <Physics gravity={effectivePortraitMode ? [-9.8, 0, 0] : [0, -9.8, 0]}>
+              <Scene invertColors={invertColors} portraitMode={effectivePortraitMode} liteGlass={liteGlass} />
+            </Physics>
+          )}
 
-        {/* Environment for reflections - lower resolution saves memory */}
-        {enableHDRI && (
-          <Environment files="/images/Dancing Hall 1k.hdr" resolution={128}>
-            <group rotation={[-Math.PI / 3, 0, 0]}>
-              <Lightformer intensity={4} rotation-x={Math.PI / 2} position={[0, 5, -9]} scale={[10, 10, 1]} />
-              {[2, 0, 2, 0, 2, 0, 2, 0].map((x, i) => (
-                <Lightformer key={i} form="circle" intensity={4} rotation={[Math.PI / 2, 0, 0]} position={[x, 4, i * 4]} scale={[4, 1, 1]} />
-              ))}
-              <Lightformer intensity={2} rotation-y={Math.PI / 2} position={[-5, 1, -1]} scale={[50, 2, 1]} />
-              <Lightformer intensity={2} rotation-y={-Math.PI / 2} position={[10, 1, 0]} scale={[50, 2, 1]} />
-            </group>
-          </Environment>
-        )}
-        <Preload all />
-      </Canvas>
+          {enableHDRI && (
+            <Environment files="/images/Dancing Hall 1k.hdr" resolution={128}>
+              <group rotation={[-Math.PI / 3, 0, 0]}>
+                <Lightformer intensity={4} rotation-x={Math.PI / 2} position={[0, 5, -9]} scale={[10, 10, 1]} />
+                {[2, 0, 2, 0, 2, 0, 2, 0].map((x, i) => (
+                  <Lightformer key={i} form="circle" intensity={4} rotation={[Math.PI / 2, 0, 0]} position={[x, 4, i * 4]} scale={[4, 1, 1]} />
+                ))}
+                <Lightformer intensity={2} rotation-y={Math.PI / 2} position={[-5, 1, -1]} scale={[50, 2, 1]} />
+                <Lightformer intensity={2} rotation-y={-Math.PI / 2} position={[10, 1, 0]} scale={[50, 2, 1]} />
+              </group>
+            </Environment>
+          )}
+          <Preload all />
+        </Canvas>
+      </div>
     </>
   )
 }
