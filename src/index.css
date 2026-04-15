@@ -16,27 +16,6 @@ body,
 
 body {
   overscroll-behavior: none;
-  background: #000;
+  background: #4899c9;
   font-family: 'Inter', sans-serif;
-}
-
-#root {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-#root.landscape-preview {
-  background: #000;
-}
-
-#root.landscape-preview .canvas-wrapper {
-  width: min(100vw, 100vh * 16 / 9);
-  height: min(100vh, 100vw * 9 / 16);
-  position: relative;
-}
-
-#root:not(.landscape-preview) .canvas-wrapper {
-  width: 100%;
-  height: 100%;
 }
